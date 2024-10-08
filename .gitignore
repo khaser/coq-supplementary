@@ -1,0 +1,4 @@
+.envrc
+.direnv
+Makefile.coq.conf
+src/*.aux
