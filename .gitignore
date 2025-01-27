@@ -2,3 +2,9 @@
 .direnv
 Makefile.coq.conf
 src/*.aux
+src/*.vo*
+src/*.glob
+_CoqProject
+Makefile.coq
+.Makefile.coq.d
+.lia.cache
