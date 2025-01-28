@@ -69,7 +69,7 @@ Section S.
   Proof.
     split; intros.
     - apply st_binds_tl; auto.
-    - inversion H; simpl.
+    - inversion H; subst.
       * contradiction.
       * auto.
   Qed.
