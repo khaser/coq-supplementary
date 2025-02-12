@@ -419,32 +419,108 @@ Module SmallStep.
         (EXEC1 : c -- s --> c')
         (EXEC2 : c -- s --> c'') :
     c' = c''.
-  Proof. admit. Admitted.
+  Proof.
+    dependent induction s.
+    all: dependent destruction EXEC1; dependent destruction EXEC2; subst; auto.
+    all: try solve [specialize (IHs1 _ _ _ EXEC1 EXEC2); inversion IHs1; subst; reflexivity].
+    1-2: by_eval_deterministic.
+    1-2: eval_zero_not_one.
+  Qed.
 
   Lemma ss_int_deterministic (c c' c'' : conf) (s : stmt)
         (STEP1 : c -- s -->> c') (STEP2 : c -- s -->> c'') :
     c' = c''.
-  Proof. admit. Admitted.
+  Proof.
+    dependent induction STEP1.
+    - inversion STEP2.
+      * dependent destruction H; inversion H0; subst; auto; by_eval_deterministic.
+      * dependent destruction H; inversion H0.
+    - apply IHSTEP1. clear IHSTEP1 STEP1.
+      inversion STEP2.
+      * pose proof (Hf := ss_int_step_deterministic _ _ _ _ H H0).
+        inversion Hf.
+      * pose proof (Hf := ss_int_step_deterministic _ _ _ _ H H0).
+        inversion Hf; subst.
+        apply H1.
+  Qed.
 
   Lemma ss_bs_base (s : stmt) (c c' : conf) (STEP : c -- s --> (None, c')) :
     c == s ==> c'.
-  Proof. admit. Admitted.
+  Proof.
+    inversion STEP; auto.
+  Qed.
 
   Lemma ss_ss_composition (c c' c'' : conf) (s1 s2 : stmt)
         (STEP1 : c -- s1 -->> c'') (STEP2 : c'' -- s2 -->> c') :
     c -- s1 ;; s2 -->> c'.
-  Proof. admit. Admitted.
+  Proof.
+    induction STEP1.
+    - eapply ss_int_Step.
+      * apply ss_Seq_Compl. eexact H.
+      * apply STEP2.
+    - pose proof (Hh := IHSTEP1 STEP2); clear STEP2 IHSTEP1.
+      eapply ss_int_Step.
+      * apply ss_Seq_InCompl. eexact H.
+      * eexact Hh.
+  Qed.
 
   Lemma ss_bs_step (c c' c'' : conf) (s s' : stmt)
         (STEP : c -- s --> (Some s', c'))
         (EXEC : c' == s' ==> c'') :
     c == s ==> c''.
-  Proof. admit. Admitted.
+  Proof.
+    dependent induction s generalizing c c' c''; inversion STEP; subst.
+    - eapply bs_Seq.
+      * apply ss_bs_base. exact SSTEP.
+      * apply EXEC.
+    - inversion EXEC; subst.
+      eapply bs_Seq.
+      * apply (IHs1 _ _ _ _ SSTEP).
+        eexact STEP1.
+      * assumption.
+    - apply bs_If_True.
+      * apply SCVAL.
+      * assumption.
+    - apply bs_If_False.
+      * apply SCVAL.
+      * assumption.
+    - apply SmokeTest.while_unfolds. apply EXEC.
+  Qed.
 
   Theorem bs_ss_eq (s : stmt) (c c' : conf) :
     c == s ==> c' <-> c -- s -->> c'.
-  Proof. admit. Admitted.
-
+  Proof.
+    split; intros.
+    - dependent induction s.
+      1-4: apply ss_int_Base;
+        inversion H; subst;
+        constructor; auto.
+      * inversion H; subst.
+        eapply ss_ss_composition.
+        -- apply (IHs1 _ _ STEP1).
+        -- apply (IHs2 _ _ STEP2).
+      * inversion H; subst.
+        -- eapply ss_int_Step.
+           ** apply ss_If_True. apply CVAL.
+           ** apply (IHs1 _ _ STEP).
+        -- eapply ss_int_Step.
+           ** apply ss_If_False. apply CVAL.
+           ** apply (IHs2 _ _ STEP).
+      * dependent induction H.
+        -- eapply ss_int_Step; try apply ss_While.
+           eapply ss_int_Step.
+           ** apply ss_If_True. eauto.
+           ** eapply ss_ss_composition; eauto.
+        -- eapply ss_int_Step; try apply ss_While.
+           eapply ss_int_Step.
+           ** apply ss_If_False. eauto.
+           ** repeat constructor.
+    - dependent induction H.
+      * apply ss_bs_base. apply H.
+      * eapply ss_bs_step.
+        -- eexact H.
+        -- apply IHss_int.
+  Qed.
 End SmallStep.
 
 Module Renaming.
