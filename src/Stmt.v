@@ -724,40 +724,121 @@ Inductive cps_int : cont -> cont -> conf -> conf -> Prop :=
     k |- (st, i, o) -- !(WHILE e DO s END) --> c'
 where "k |- c1 -- s --> c2" := (cps_int k s c1 c2).
 
-Ltac cps_bs_gen_helper k H HH :=
+Ltac cps_bs_gen_helper k H :=
   destruct k eqn:K; subst; inversion H; subst;
   [inversion EXEC; subst | eapply bs_Seq; eauto];
-  apply HH; auto.
+  eauto.
 
 Lemma cps_bs_gen (S : stmt) (c c' : conf) (S1 k : cont)
       (EXEC : k |- c -- S1 --> c') (DEF : !S = S1 @ k):
   c == S ==> c'.
-Proof. admit. Admitted.
+Proof.
+  dependent induction EXEC generalizing S.
+  2-5: cps_bs_gen_helper k DEF.
+  - inversion DEF.
+  - destruct k eqn:K; subst; inversion DEF; subst.
+    * eauto.
+    * unfold Kapp in *.
+      apply (SmokeTest.seq_assoc s1 s2 s).
+      eauto.
+  - dependent destruction k; dependent destruction DEF.
+    * eauto.
+    * unfold Kapp in *.
+      specialize (IHEXEC (s1;; s0)).
+      assert (KStmt (s1;; s0) = KStmt (s1;; s0)); auto.
+      apply IHEXEC in H.
+      dependent destruction H.
+      eapply bs_Seq; eauto.
+  - dependent destruction k; dependent destruction DEF.
+    * eauto.
+    * unfold Kapp in *.
+      specialize (IHEXEC (s2;; s0)).
+      assert (KStmt (s2;; s0) = KStmt (s2;; s0)); auto.
+      apply IHEXEC in H.
+      dependent destruction H.
+      eapply bs_Seq; eauto.
+  - dependent destruction k; dependent destruction DEF.
+    * unfold Kapp in *.
+      specialize (IHEXEC (s;; (WHILE e DO s END))).
+      assert (KStmt (s;; (WHILE e DO s END)) = KStmt (s;; (WHILE e DO s END))); auto.
+      apply IHEXEC in H.
+      dependent destruction H.
+      eauto.
+    * unfold Kapp in *.
+      pose (Sm := (s0;; (WHILE e DO s0 END);; s)).
+      specialize (IHEXEC Sm).
+      assert (KStmt Sm = KStmt Sm); auto.
+      apply IHEXEC in H.
+      dependent destruction H.
+      inversion H0; subst.
+      eapply bs_Seq; eauto.
+  - dependent destruction k; dependent destruction DEF.
+    * unfold Kapp in *.
+      dependent destruction EXEC.
+      eapply (bs_While_False _ _ _ _ _ CVAL).
+    * unfold Kapp in *.
+      pose (Sm := (s)).
+      specialize (IHEXEC Sm).
+      assert (KStmt Sm = KStmt Sm); auto.
+      apply IHEXEC in H.
+      eapply bs_Seq; eauto.
+Qed.
 
-Lemma cps_bs (s1 s2 : stmt) (c c' : conf) (STEP : !s2 |- c -- !s1 --> c'):
+Lemma cps_bs (s1 s2 : stmt) (c c' : conf)
+  (STEP : !s2 |- c -- !s1 --> c'):
    c == s1 ;; s2 ==> c'.
-Proof. admit. Admitted.
+Proof.
+  eapply cps_bs_gen; eauto.
+Qed.
 
 Lemma cps_int_to_bs_int (c c' : conf) (s : stmt)
       (STEP : KEmpty |- c -- !(s) --> c') :
   c == s ==> c'.
-Proof. admit. Admitted.
+Proof.
+  eapply cps_bs_gen; eauto.
+Qed.
 
 Lemma cps_cont_to_seq c1 c2 k1 k2 k3
       (STEP : (k2 @ k3 |- c1 -- k1 --> c2)) :
   (k3 |- c1 -- k1 @ k2 --> c2).
-Proof. admit. Admitted.
+Proof.
+  dependent destruction k2;
+  dependent destruction k1;
+  unfold Kapp in *.
+  - eauto.
+  - eauto.
+  - dependent destruction k3; inversion STEP.
+  - apply cps_Seq.
+    dependent destruction k3; eauto.
+Qed.
 
 Lemma bs_int_to_cps_int_cont c1 c2 c3 s k
       (EXEC : c1 == s ==> c2)
       (STEP : k |- c2 -- !(SKIP) --> c3) :
   k |- c1 -- !(s) --> c3.
-Proof. admit. Admitted.
+Proof.
+  dependent induction EXEC generalizing k.
+  all: try solve [econstructor; eauto; dependent destruction STEP; eauto].
+  - apply (cps_cont_to_seq c c3 (KStmt s1) (KStmt s2) k).
+    apply IHEXEC1.
+    apply IHEXEC2 in STEP.
+    constructor.
+    dependent destruction k; unfold Kapp.
+    * auto.
+    * apply (cps_cont_to_seq c' c3 (KStmt s2) (KStmt s) KEmpty).
+      auto.
+  - econstructor; auto.
+    apply IHEXEC1.
+    constructor.
+    apply (cps_cont_to_seq).
+    apply IHEXEC2.
+    dependent destruction k; unfold "@"; auto.
+Qed.
 
 Lemma bs_int_to_cps_int st i o c' s (EXEC : (st, i, o) == s ==> c') :
   KEmpty |- (st, i, o) -- !s --> c'.
-Proof. admit. Admitted.
-
-(* Lemma cps_stmt_assoc s1 s2 s3 s (c c' : conf) : *)
-(*   (! (s1 ;; s2 ;; s3)) |- c -- ! (s) --> (c') <-> *)
-(*   (! ((s1 ;; s2) ;; s3)) |- c -- ! (s) --> (c'). *)
+Proof.
+  eapply bs_int_to_cps_int_cont.
+  - eexact EXEC.
+  - constructor. constructor.
+Qed.
