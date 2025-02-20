@@ -400,17 +400,20 @@ Inductive sm_int : prog -> conf -> prog -> conf -> Prop :=
                         (P p      : prog)
                         (i        : StraightLine.insn)
                         (H        : c == [i] ==> c')
-                        (HP       : P |- c' -- p --> c''), P |- c -- B i :: p --> c''
+                        (HP       : P |- c' -- p --> c''),
+                 P |- c -- B i :: p --> c''
 
 | sm_Label     : forall (c c' : conf)
                         (P p  : prog)
                         (l    : nat)
-                        (H    : P |- c -- p --> c'), P |- c -- LAB l :: p --> c'
+                        (H    : P |- c -- p --> c'),
+                 P |- c -- LAB l :: p --> c'
 
 | sm_JMP       : forall (c c' : conf)
                         (P p  : prog)
                         (l    : nat)
-                        (H    : P |- c -- at_label l P --> c'), P |- c -- JMP l :: p --> c'
+                        (H    : P |- c -- at_label l P --> c'),
+                 P |- c -- JMP l :: p --> c'
 
 | sm_JZ_False  : forall (s i o : list Z)
                         (m     : state Z)
@@ -419,21 +422,24 @@ Inductive sm_int : prog -> conf -> prog -> conf -> Prop :=
                         (l     : nat)
                         (z     : Z)
                         (HZ    : z <> 0%Z)
-                        (H     : P |- (s, m, i, o) -- p --> c'), P |- (z :: s, m, i, o) -- JZ l :: p --> c'
+                        (H     : P |- (s, m, i, o) -- p --> c'),
+                 P |- (z :: s, m, i, o) -- JZ l :: p --> c'
 
 | sm_JZ_True   : forall (s i o : list Z)
                         (m     : state Z)
                         (c'    : conf)
                         (P p   : prog)
                         (l     : nat)
-                        (H     : P |- (s, m, i, o) -- at_label l P --> c'), P |- (0%Z :: s, m, i, o) -- JZ l :: p --> c'
+                        (H     : P |- (s, m, i, o) -- at_label l P --> c'),
+                 P |- (0%Z :: s, m, i, o) -- JZ l :: p --> c'
 
 | sm_JNZ_False : forall (s i o : list Z)
                         (m     : state Z)
                         (c'    : conf)
                         (P p   : prog)
                         (l     : nat)
-                        (H : P |- (s, m, i, o) -- p --> c'), P |- (0%Z :: s, m, i, o) -- JNZ l :: p --> c'
+                        (H : P |- (s, m, i, o) -- p --> c'),
+                 P |- (0%Z :: s, m, i, o) -- JNZ l :: p --> c'
 
 | sm_JNZ_True  : forall (s i o : list Z)
                         (m     : state Z)
@@ -442,7 +448,8 @@ Inductive sm_int : prog -> conf -> prog -> conf -> Prop :=
                         (l     : nat)
                         (z     : Z)
                         (HZ    : z <> 0%Z)
-                        (H : P |- (s, m, i, o) -- at_label l P --> c'), P |- (z :: s, m, i, o) -- JNZ l :: p --> c'
+                        (H : P |- (s, m, i, o) -- at_label l P --> c'),
+                 P |- (z :: s, m, i, o) -- JNZ l :: p --> c'
 | sm_Empty : forall (c : conf) (P : prog), P |- c -- [] --> c
 where "P '|-' c1 '--' q '-->' c2" := (sm_int P c1 q c2).
 
@@ -457,7 +464,8 @@ Fixpoint label_occurs_once_rec (occured : bool) (n: nat) (p : prog) : bool :=
   | []          => occured
   end.
 
-Definition label_occurs_once (n : nat) (p : prog) : bool := label_occurs_once_rec false n p.
+Definition label_occurs_once (n : nat) (p : prog) : bool :=
+  label_occurs_once_rec false n p.
 
 Fixpoint prog_wf_rec (prog p : prog) : bool :=
   match p with
@@ -475,11 +483,53 @@ Definition prog_wf (p : prog) : bool := prog_wf_rec p p.
 Lemma wf_app (p q  : prog)
              (l    : nat)
              (Hwf  : prog_wf_rec q p = true)
-             (Hocc : label_occurs_once l q = true) : prog_wf_rec q (p ++ [JMP l]) = true.
-Proof. admit. Admitted.
+             (Hocc : label_occurs_once l q = true) :
+      prog_wf_rec q (p ++ [JMP l]) = true.
+Proof.
+  dependent induction p.
+  - simpl. rewrite Hocc. auto.
+  - dependent destruction a.
+    all: simpl in *; eauto;
+         rewrite Bool.andb_true_iff in Hwf;
+         destruct Hwf;
+         eauto;
+         lapply (IHp q l); eauto;
+         clear IHp; intros;
+         apply H1 in Hocc;
+         rewrite Hocc;
+         rewrite H;
+         auto.
+Qed.
 
-Lemma wf_rev (p q : prog) (Hwf : prog_wf_rec q p = true) : prog_wf_rec q (rev p) = true.
-Proof. admit. Admitted.
+Lemma wf_merge (p q w : prog)
+             (H1: prog_wf_rec q p = true)
+             (H2: prog_wf_rec q w = true):
+             prog_wf_rec q (p ++ w) = true.
+Proof.
+  dependent induction p; auto.
+  dependent destruction a; simpl in *.
+  all: try solve [
+       rewrite Bool.andb_true_iff in H1;
+       destruct H1;
+       rewrite H;
+       rewrite (IHp q w H0 H2);
+       auto
+  ].
+  all: apply (IHp q w H1 H2).
+Qed.
+
+Lemma wf_rev (p q : prog) (Hwf : prog_wf_rec q p = true) :
+  prog_wf_rec q (rev p) = true.
+Proof.
+  dependent induction p; eauto.
+  dependent destruction a; simpl in *.
+  1-3: rewrite Bool.andb_true_iff in Hwf;
+       destruct Hwf;
+       specialize (IHp q H0);
+       eapply wf_merge; auto;
+       simpl; rewrite H; auto.
+  all: eapply wf_merge; auto.
+Qed.
 
 Fixpoint convert_straightline (p : StraightLine.prog) : prog :=
   match p with
@@ -487,8 +537,15 @@ Fixpoint convert_straightline (p : StraightLine.prog) : prog :=
   | i :: p' => B i :: convert_straightline p'
   end.
 
-Lemma cons_comm_app (A : Type) (a : A) (l1 l2 : list A) : l1 ++ a :: l2 = (l1 ++ [a]) ++ l2.
-Proof. admit. Admitted.
+Lemma cons_comm_app (A : Type) (a : A) (l1 l2 : list A) :
+  l1 ++ a :: l2 = (l1 ++ [a]) ++ l2.
+Proof.
+  dependent induction l1; eauto.
+  simpl.
+  specialize (IHl1 l2).
+  rewrite IHl1.
+  reflexivity.
+Qed.
 
 Definition compile_expr (e : expr) : prog :=
   convert_straightline (StraightLine.compile_expr e).
