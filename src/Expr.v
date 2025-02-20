@@ -641,11 +641,72 @@ Module SmallStep.
 
   #[export] Hint Resolve ss_eval_binop : core.
 
+  Lemma ss_eval_equiv_helper
+    (e1 e2: expr)
+    (s: state Z)
+    (z: Z)
+    (b: bop)
+    (H: ss_eval s (Bop b e1 e2) (Nat z)):
+    exists z1 z2: Z,
+      ss_eval s e1 (Nat z1)
+      /\ ss_eval s e2 (Nat z2)
+      /\ [|Bop b (Nat z1) (Nat z2)|] s => (z).
+  Proof.
+    dependent induction H.
+    - dependent destruction HStep.
+      * specialize (IHss_eval l' e2 z b).
+        lapply IHss_eval; auto; intros.
+        lapply H0; auto; intros.
+        clear H0 IHss_eval.
+        destruct H1 as [z1 [z2 [H1 [H2 Hb]]]].
+        exists z1, z2.
+        eauto.
+      * specialize (IHss_eval e1 r' z b).
+        lapply IHss_eval; auto; intros.
+        lapply H0; auto; intros.
+        clear H0 IHss_eval.
+        destruct H1 as [z1 [z2 [H1 [H2 Hb]]]].
+        exists z1, z2.
+        eauto.
+      * exists zl, zr.
+        dependent destruction H.
+        -- eauto.
+        -- inversion HStep.
+  Qed.
+
   Lemma ss_eval_equiv (e : expr)
                       (s : state Z)
                       (z : Z) :
     [| e |] s => z <-> (s |- e -->> (Nat z)).
-  Proof. admit. Admitted.
+  Proof.
+    split; intros.
+    - dependent induction e.
+      * intros. inversion H. constructor.
+      * intros. dependent destruction H. eapply se_Step.
+        -- econstructor. apply VAR.
+        -- constructor.
+      * intros.
+        dependent destruction H.
+        all: eapply ss_eval_binop; eauto.
+    - dependent induction e.
+      * intros.
+        dependent induction H.
+        -- auto.
+        -- apply IHss_eval; auto. inversion HStep.
+      * intros.
+        dependent destruction H; eauto.
+        dependent destruction HStep.
+        dependent destruction H; eauto.
+        inversion HStep.
+      * destruct (ss_eval_equiv_helper _ _ _ _ _ H) as [z1 [z2 [H1 [H2 Hb]]]].
+        specialize (IHe1 s z1 H1).
+        specialize (IHe2 s z2 H2).
+        dependent destruction b.
+        all: dependent destruction Hb;
+             dependent destruction Hb1;
+             dependent destruction Hb2;
+             eauto.
+  Qed.
 
 End SmallStep.
 
