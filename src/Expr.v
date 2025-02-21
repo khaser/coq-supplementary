@@ -777,41 +777,16 @@ Module StaticSemantics.
     (*   dependent induction HR. *)
     (*   * (* Unproofable (exists an inappropriate t') *) *)
 
-  Lemma no_type_preservation : exists e t t' (HS: t' << t) (HT: e :-: t), exists st e' (HR: st |- e ~~> e'), ~e' :-: t'.
+  Lemma no_type_preservation :
+    ~ (forall e t t', (t' << t) -> (e :-: t) -> forall st e', (st |- e ~~> e') -> e' :-: t').
   Proof.
+    unfold "~".
+    intros.
     pose (e := Var (Id 0)).
-    exists (e).
-    exists Int.
-    exists Bool.
-    exists (subt_base).
-    exists (type_X (Id 0)).
     pose (st := [(Id 0, 3%Z)]).
-    exists (st).
-    exists (e).
-    exists (reach_base st e).
-    intro.
+    specialize (H e Int Bool subt_base (type_X (Id 0)) st e (reach_base st e)).
     inversion H.
   Qed.
-
-  (* Alternative definition *)
-
-  (* Lemma type_preservation e e' t t' (HT: e :-: t) *)
-  (*                                (st: state Z) *)
-  (*                                (HS: t' << t) *)
-  (*                                (HR: st |- e ~~> e'): e' :-: t'. *)
-  (* Proof. *)
-  (*   dependent induction HR generalizing st. *)
-  (*   - dependent destruction HS; auto. *)
-  (*     repeat esplit; econstructor; eauto. *)
-  (*   - dependent destruction HStep. *)
-  (*     * dependent destruction HR. *)
-  (*       -- dependent destruction HT. *)
-  (*          admit. *)
-  (*          (* ???? *) *)
-  (*       -- dependent destruction HStep. *)
-  (*     * admit. *)
-  (*       (* Belive, that can be continued *) *)
-  (* Qed. *)
 
   Lemma type_bool e (HT : e :-: Bool) :
     forall st z (HVal: [| e |] st => z), zbool z.
