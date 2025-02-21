@@ -723,6 +723,8 @@ Module StaticSemantics.
   | subt_base : Bool << Int
   where "t1 << t2" := (subtype t1 t2).
 
+  #[export] Hint Constructors subtype : core.
+
   Lemma subtype_trans t1 t2 t3 (H1: t1 << t2) (H2: t2 << t3) : t1 << t3.
   Proof.
     inversion H1; subst.
@@ -761,9 +763,55 @@ Module StaticSemantics.
   | type_Or  : forall e1 e2 (H1 : e1 :-: Bool) (H2 : e2 :-: Bool), (e1 [\/] e2) :-: Bool
   where "e :-: t" := (typeOf e t).
 
-  Lemma type_preservation e t t' (HS: t' << t) (HT: e :-: t) :
-    forall st e' (HR: st |- e ~~> e'), e' :-: t'.
+  #[export] Hint Constructors typeOf : core.
+
+  Lemma type_preservation e t t' (HS: t' << t) (HT: e :-: t) : forall st e' (HR: st |- e ~~> e'), e' :-: t'. 
   Proof. admit. Admitted.
+    (* Variant 1 *)
+    (* dependent induction HS. *)
+    (* * intros. (* Unproofable (exists an inappropriate e) *) *)
+
+    (* Variant 2 *)
+    (* dependent induction HT. *)
+    (* - intros. *)
+    (*   dependent induction HR. *)
+    (*   * (* Unproofable (exists an inappropriate t') *) *)
+
+  Lemma no_type_preservation : exists e t t' (HS: t' << t) (HT: e :-: t), exists st e' (HR: st |- e ~~> e'), ~e' :-: t'.
+  Proof.
+    pose (e := Var (Id 0)).
+    exists (e).
+    exists Int.
+    exists Bool.
+    exists (subt_base).
+    exists (type_X (Id 0)).
+    pose (st := [(Id 0, 3%Z)]).
+    exists (st).
+    exists (e).
+    exists (reach_base st e).
+    intro.
+    inversion H.
+  Qed.
+
+  (* Alternative definition *)
+
+  (* Lemma type_preservation e e' t t' (HT: e :-: t) *)
+  (*                                (st: state Z) *)
+  (*                                (HS: t' << t) *)
+  (*                                (HR: st |- e ~~> e'): e' :-: t'. *)
+  (* Proof. *)
+  (*   dependent induction HR generalizing st. *)
+  (*   - dependent destruction HS; auto. *)
+  (*     repeat esplit; econstructor; eauto. *)
+  (*   - dependent destruction HStep. *)
+  (*     * dependent destruction HR. *)
+  (*       -- dependent destruction HT. *)
+  (*          admit. *)
+  (*          (* ???? *) *)
+  (*       -- dependent destruction HStep. *)
+  (*     * admit. *)
+  (*       (* Belive, that can be continued *) *)
+  (* Qed. *)
 
   Lemma type_bool e (HT : e :-: Bool) :
     forall st z (HVal: [| e |] st => z), zbool z.
